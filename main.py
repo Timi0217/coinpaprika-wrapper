@@ -285,14 +285,15 @@ async function checkHealth() {
   }
 }
 
-async function loadGlobalStats() {
+async function loadDashboard() {
   try {
-    const res = await fetch('/global');
+    const res = await fetch('/dashboard');
     const data = await res.json();
 
-    const mcap = data.total_market_cap_usd;
-    const vol = data.volume_24h_usd;
-    const btcDom = data.bitcoin_dominance_pct;
+    // Update global stats
+    const mcap = data.global.total_market_cap_usd;
+    const vol = data.global.volume_24h_usd;
+    const btcDom = data.global.bitcoin_dominance_pct;
 
     document.getElementById('marketCap').textContent = mcap ?
       '$' + (mcap / 1e12).toFixed(2) + 'T' : 'N/A';
@@ -300,37 +301,34 @@ async function loadGlobalStats() {
       '$' + (vol / 1e9).toFixed(1) + 'B' : 'N/A';
     document.getElementById('btcDom').textContent = btcDom ?
       btcDom.toFixed(1) + '%' : 'N/A';
-  } catch (err) {
-    console.error('Global stats error:', err);
-  }
-}
 
-async function loadCryptoPrices() {
-  const grid = document.getElementById('cryptoGrid');
-  grid.innerHTML = '';
+    // Update crypto prices
+    const grid = document.getElementById('cryptoGrid');
+    grid.innerHTML = '';
 
-  for (const sym of symbols) {
-    try {
-      const res = await fetch('/price?symbol=' + sym);
-      const data = await res.json();
+    for (const crypto of data.prices) {
+      if (crypto.error) {
+        console.error('Error loading ' + crypto.symbol + ':', crypto.error);
+        continue;
+      }
 
       const card = document.createElement('div');
       card.className = 'crypto-card';
 
       const icon = document.createElement('div');
       icon.className = 'icon-circle';
-      icon.textContent = sym[0];
+      icon.textContent = crypto.symbol[0];
 
       const info = document.createElement('div');
       info.className = 'crypto-info';
 
       const symbolDiv = document.createElement('div');
       symbolDiv.className = 'crypto-symbol';
-      symbolDiv.textContent = sym;
+      symbolDiv.textContent = crypto.symbol;
 
       const priceDiv = document.createElement('div');
       priceDiv.className = 'crypto-price';
-      priceDiv.textContent = data.price ? '$' + data.price.toLocaleString('en-US', {
+      priceDiv.textContent = crypto.price ? '$' + crypto.price.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }) : 'N/A';
@@ -340,7 +338,7 @@ async function loadCryptoPrices() {
 
       const changeDiv = document.createElement('div');
       changeDiv.className = 'crypto-change';
-      const change = data.change_24h_pct;
+      const change = crypto.change_24h_pct;
       if (change !== null && change !== undefined) {
         const arrow = change >= 0 ? '\\u2191' : '\\u2193';
         changeDiv.textContent = arrow + ' ' + Math.abs(change).toFixed(1) + '%';
@@ -354,9 +352,9 @@ async function loadCryptoPrices() {
       card.appendChild(info);
       card.appendChild(changeDiv);
       grid.appendChild(card);
-    } catch (err) {
-      console.error('Error loading ' + sym + ':', err);
     }
+  } catch (err) {
+    console.error('Dashboard error:', err);
   }
 }
 
@@ -392,8 +390,7 @@ document.getElementById('symbolInput').addEventListener('keypress', (e) => {
 });
 
 checkHealth();
-loadGlobalStats();
-loadCryptoPrices();
+loadDashboard();
 </script>
 </body>
 </html>
@@ -653,5 +650,55 @@ async def get_global():
         "volume_change_24h_pct": data.get("volume_24h_change_24h"),
         "market_cap_ath_value": data.get("market_cap_ath_value"),
         "market_cap_ath_date": data.get("market_cap_ath_date"),
+        "timestamp": _ts(),
+    }
+
+
+@app.get("/dashboard")
+async def get_dashboard():
+    """Get all homepage data in a single call (global stats + crypto prices)."""
+    import asyncio
+
+    # Fetch global stats
+    global_data = await _cp_request("/global")
+
+    # Small delay
+    await asyncio.sleep(0.2)
+
+    # Fetch prices for homepage symbols
+    symbols = ['BTC', 'ETH', 'SOL', 'XRP']
+    prices = []
+
+    for symbol in symbols:
+        try:
+            coin_id = _resolve_coin_id(symbol)
+            data = await _cp_request(f"/tickers/{coin_id}")
+            quotes = data.get("quotes", {}).get("USD", {})
+
+            prices.append({
+                "symbol": data.get("symbol", symbol),
+                "name": data.get("name"),
+                "price": quotes.get("price"),
+                "change_24h_pct": quotes.get("percent_change_24h"),
+                "volume_24h": quotes.get("volume_24h"),
+                "market_cap": quotes.get("market_cap"),
+            })
+
+            # Small delay between requests
+            await asyncio.sleep(0.2)
+        except Exception as e:
+            # Continue on errors, just skip this symbol
+            prices.append({
+                "symbol": symbol,
+                "error": str(e)
+            })
+
+    return {
+        "global": {
+            "total_market_cap_usd": global_data.get("market_cap_usd"),
+            "volume_24h_usd": global_data.get("volume_24h_usd"),
+            "bitcoin_dominance_pct": global_data.get("bitcoin_dominance_percentage"),
+        },
+        "prices": prices,
         "timestamp": _ts(),
     }
