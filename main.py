@@ -63,18 +63,27 @@ body{
 }
 .title{
   font-family:"Courier New",monospace;
-  font-style:italic;
   font-size:28px;
   color:#00D4AA;
-  font-weight:bold;
+  font-weight:700;
 }
 .health{
-  background:rgba(0,212,170,.15);
-  color:#00D4AA;
-  padding:4px 10px;
-  border-radius:12px;
-  font-size:12px;
-  font-weight:600;
+  font-family:"Courier New",monospace;
+  font-size:13px;
+  color:#555;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.health .d{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#555;
+  transition:background .3s;
+}
+.health .d.on{
+  background:#4CAF50;
 }
 .subtitle{
   color:#888;
@@ -220,7 +229,7 @@ body{
   <div class="card">
     <div class="header">
       <div class="title">CoinPaprika</div>
-      <div class="health" id="healthBadge">\\u2022 checking</div>
+      <div class="health"><span class="d" id="dot"></span><span id="health-text">connecting...</span></div>
     </div>
     <div class="subtitle">Crypto fundamentals, on-chain metrics, and OHLCV history</div>
 
@@ -265,16 +274,14 @@ body{
 const symbols = ['BTC', 'ETH', 'SOL', 'XRP'];
 
 async function checkHealth() {
+  const t0 = Date.now();
   try {
-    const res = await fetch('/health');
-    const data = await res.json();
-    document.getElementById('healthBadge').textContent = '\\u2022 ' + data.status;
-    document.getElementById('healthBadge').style.background = 'rgba(0,212,170,.15)';
-    document.getElementById('healthBadge').style.color = '#00D4AA';
+    await fetch('/health');
+    const ms = Date.now() - t0;
+    document.getElementById('dot').classList.add('on');
+    document.getElementById('health-text').textContent = 'online \\u00B7 ' + ms + 'ms';
   } catch {
-    document.getElementById('healthBadge').textContent = '\\u2022 error';
-    document.getElementById('healthBadge').style.background = 'rgba(255,68,68,.15)';
-    document.getElementById('healthBadge').style.color = '#ff4444';
+    document.getElementById('health-text').textContent = 'offline';
   }
 }
 
