@@ -4,6 +4,7 @@ from typing import Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 import httpx
 
 
@@ -25,6 +26,371 @@ app = FastAPI(title="CoinPaprika Wrapper", lifespan=lifespan)
 
 def _ts() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+HOME_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CoinPaprika Wrapper</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#0a0a0a;
+  color:#e0e0e0;
+  line-height:1.5;
+  padding:20px;
+  opacity:0;
+  animation:fadeIn 0.6s forwards;
+}
+@keyframes fadeIn{to{opacity:1}}
+.container{max-width:640px;margin:0 auto}
+.card{
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;
+  padding:24px;
+  margin-bottom:20px;
+}
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+.title{
+  font-family:"Courier New",monospace;
+  font-style:italic;
+  font-size:28px;
+  color:#00D4AA;
+  font-weight:bold;
+}
+.health{
+  background:rgba(0,212,170,.15);
+  color:#00D4AA;
+  padding:4px 10px;
+  border-radius:12px;
+  font-size:12px;
+  font-weight:600;
+}
+.subtitle{
+  color:#888;
+  font-size:14px;
+  margin-bottom:24px;
+}
+.global-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  margin-bottom:24px;
+}
+.stat-box{
+  text-align:center;
+  padding:12px;
+  background:rgba(0,212,170,.05);
+  border:1px solid rgba(0,212,170,.15);
+  border-radius:8px;
+}
+.stat-label{
+  font-size:11px;
+  color:#888;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  margin-bottom:4px;
+}
+.stat-value{
+  font-family:"Courier New",monospace;
+  font-size:18px;
+  font-weight:bold;
+  color:#00D4AA;
+}
+.crypto-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  margin-bottom:24px;
+}
+.crypto-card{
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;
+  padding:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transition:background 0.2s;
+}
+.crypto-card:hover{background:rgba(255,255,255,.04)}
+.icon-circle{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:#00D4AA;
+  color:#0a0a0a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:bold;
+  font-size:14px;
+  flex-shrink:0;
+}
+.crypto-info{flex:1;min-width:0}
+.crypto-symbol{
+  font-weight:bold;
+  font-size:13px;
+  color:#fff;
+}
+.crypto-price{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  color:#aaa;
+}
+.crypto-change{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+.crypto-change.positive{color:#00D4AA}
+.crypto-change.negative{color:#ff4444}
+.form-section{margin-top:20px}
+.input-group{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+}
+.input-group input{
+  flex:1;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;
+  padding:10px 14px;
+  color:#fff;
+  font-size:14px;
+}
+.input-group input:focus{
+  outline:none;
+  border-color:#00D4AA;
+}
+.input-group button{
+  background:#00D4AA;
+  color:#0a0a0a;
+  border:none;
+  border-radius:8px;
+  padding:10px 20px;
+  font-weight:600;
+  cursor:pointer;
+  transition:opacity 0.2s;
+}
+.input-group button:hover{opacity:0.85}
+.try-section{
+  font-size:13px;
+  color:#666;
+}
+.try-section span{
+  color:#00D4AA;
+  cursor:pointer;
+  text-decoration:underline;
+  margin:0 4px;
+}
+.try-section span:hover{color:#00ffcc}
+.result{
+  margin-top:16px;
+  padding:12px;
+  background:rgba(0,212,170,.08);
+  border:1px solid rgba(0,212,170,.2);
+  border-radius:8px;
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  color:#e0e0e0;
+  white-space:pre-wrap;
+  word-break:break-all;
+  max-height:300px;
+  overflow-y:auto;
+  display:none;
+}
+.loading{color:#888;text-align:center;padding:12px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="header">
+      <div class="title">CoinPaprika</div>
+      <div class="health" id="healthBadge">\\u2022 checking</div>
+    </div>
+    <div class="subtitle">Crypto fundamentals, on-chain metrics, and OHLCV history</div>
+
+    <div class="global-stats" id="globalStats">
+      <div class="stat-box">
+        <div class="stat-label">Market Cap</div>
+        <div class="stat-value" id="marketCap">...</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">24h Volume</div>
+        <div class="stat-value" id="volume24h">...</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">BTC Dom.</div>
+        <div class="stat-value" id="btcDom">...</div>
+      </div>
+    </div>
+
+    <div class="crypto-grid" id="cryptoGrid">
+      <div class="loading">Loading crypto prices...</div>
+    </div>
+
+    <div class="form-section">
+      <div class="input-group">
+        <input type="text" id="symbolInput" placeholder="BTC" />
+        <button onclick="fetchPrice()">\\u2192 price</button>
+      </div>
+      <div class="try-section">
+        Try:
+        <span onclick="trySymbol('ETH')">ETH</span>\\u00B7
+        <span onclick="trySymbol('SOL')">SOL</span>\\u00B7
+        <span onclick="trySymbol('DOGE')">DOGE</span>\\u00B7
+        <span onclick="trySymbol('ADA')">ADA</span>\\u00B7
+        <span onclick="trySymbol('XRP')">XRP</span>
+      </div>
+      <div class="result" id="result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const symbols = ['BTC', 'ETH', 'SOL', 'XRP'];
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health');
+    const data = await res.json();
+    document.getElementById('healthBadge').textContent = '\\u2022 ' + data.status;
+    document.getElementById('healthBadge').style.background = 'rgba(0,212,170,.15)';
+    document.getElementById('healthBadge').style.color = '#00D4AA';
+  } catch {
+    document.getElementById('healthBadge').textContent = '\\u2022 error';
+    document.getElementById('healthBadge').style.background = 'rgba(255,68,68,.15)';
+    document.getElementById('healthBadge').style.color = '#ff4444';
+  }
+}
+
+async function loadGlobalStats() {
+  try {
+    const res = await fetch('/global');
+    const data = await res.json();
+
+    const mcap = data.total_market_cap_usd;
+    const vol = data.volume_24h_usd;
+    const btcDom = data.bitcoin_dominance_pct;
+
+    document.getElementById('marketCap').textContent = mcap ?
+      '$' + (mcap / 1e12).toFixed(2) + 'T' : 'N/A';
+    document.getElementById('volume24h').textContent = vol ?
+      '$' + (vol / 1e9).toFixed(1) + 'B' : 'N/A';
+    document.getElementById('btcDom').textContent = btcDom ?
+      btcDom.toFixed(1) + '%' : 'N/A';
+  } catch (err) {
+    console.error('Global stats error:', err);
+  }
+}
+
+async function loadCryptoPrices() {
+  const grid = document.getElementById('cryptoGrid');
+  grid.innerHTML = '';
+
+  for (const sym of symbols) {
+    try {
+      const res = await fetch('/price?symbol=' + sym);
+      const data = await res.json();
+
+      const card = document.createElement('div');
+      card.className = 'crypto-card';
+
+      const icon = document.createElement('div');
+      icon.className = 'icon-circle';
+      icon.textContent = sym[0];
+
+      const info = document.createElement('div');
+      info.className = 'crypto-info';
+
+      const symbolDiv = document.createElement('div');
+      symbolDiv.className = 'crypto-symbol';
+      symbolDiv.textContent = sym;
+
+      const priceDiv = document.createElement('div');
+      priceDiv.className = 'crypto-price';
+      priceDiv.textContent = data.price ? '$' + data.price.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) : 'N/A';
+
+      info.appendChild(symbolDiv);
+      info.appendChild(priceDiv);
+
+      const changeDiv = document.createElement('div');
+      changeDiv.className = 'crypto-change';
+      const change = data.change_24h_pct;
+      if (change !== null && change !== undefined) {
+        const arrow = change >= 0 ? '\\u2191' : '\\u2193';
+        changeDiv.textContent = arrow + ' ' + Math.abs(change).toFixed(1) + '%';
+        changeDiv.classList.add(change >= 0 ? 'positive' : 'negative');
+      } else {
+        changeDiv.textContent = 'N/A';
+        changeDiv.style.color = '#666';
+      }
+
+      card.appendChild(icon);
+      card.appendChild(info);
+      card.appendChild(changeDiv);
+      grid.appendChild(card);
+    } catch (err) {
+      console.error('Error loading ' + sym + ':', err);
+    }
+  }
+}
+
+async function fetchPrice() {
+  const input = document.getElementById('symbolInput');
+  const result = document.getElementById('result');
+  const symbol = input.value.trim().toUpperCase();
+
+  if (!symbol) {
+    alert('Please enter a symbol');
+    return;
+  }
+
+  result.style.display = 'block';
+  result.textContent = 'Loading...';
+
+  try {
+    const res = await fetch('/price?symbol=' + symbol);
+    const data = await res.json();
+    result.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    result.textContent = 'Error: ' + err.message;
+  }
+}
+
+function trySymbol(sym) {
+  document.getElementById('symbolInput').value = sym;
+  fetchPrice();
+}
+
+document.getElementById('symbolInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') fetchPrice();
+});
+
+checkHealth();
+loadGlobalStats();
+loadCryptoPrices();
+</script>
+</body>
+</html>
+"""
 
 
 # CoinPaprika uses IDs like "btc-bitcoin", "eth-ethereum"
@@ -104,20 +470,7 @@ def _resolve_coin_id(symbol: str) -> str:
 
 @app.get("/")
 async def root():
-    return {
-        "name": "CoinPaprika Wrapper",
-        "description": "Crypto project data, team info, on-chain metrics, OHLCV history, and market tickers from CoinPaprika",
-        "endpoints": [
-            {"path": "/price?symbol=BTC", "description": "Get current crypto price and market data"},
-            {"path": "/coin?symbol=BTC", "description": "Get detailed coin info (team, links, tags)"},
-            {"path": "/ohlcv?symbol=BTC&days=30", "description": "Get OHLCV historical data"},
-            {"path": "/markets?symbol=BTC", "description": "Get exchange markets for a coin"},
-            {"path": "/search?query=bitcoin", "description": "Search coins"},
-            {"path": "/global", "description": "Global crypto market stats"},
-            {"path": "/health", "description": "Health check"},
-        ],
-        "supported_symbols": sorted(SYMBOL_TO_ID.keys()),
-    }
+    return HTMLResponse(content=HOME_HTML)
 
 
 @app.get("/health")
