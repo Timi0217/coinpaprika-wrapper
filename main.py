@@ -255,14 +255,14 @@ body{
     <div class="form-section">
       <div class="input-group">
         <input type="text" id="symbolInput" placeholder="BTC" />
-        <button onclick="fetchPrice()">\\u2192 price</button>
+        <button onclick="fetchPrice()">&rarr; price</button>
       </div>
       <div class="try-section">
         Try:
-        <span onclick="trySymbol('ETH')">ETH</span>\\u00B7
-        <span onclick="trySymbol('SOL')">SOL</span>\\u00B7
-        <span onclick="trySymbol('DOGE')">DOGE</span>\\u00B7
-        <span onclick="trySymbol('ADA')">ADA</span>\\u00B7
+        <span onclick="trySymbol('ETH')">ETH</span>&middot;
+        <span onclick="trySymbol('SOL')">SOL</span>&middot;
+        <span onclick="trySymbol('DOGE')">DOGE</span>&middot;
+        <span onclick="trySymbol('ADA')">ADA</span>&middot;
         <span onclick="trySymbol('XRP')">XRP</span>
       </div>
       <div class="result" id="result"></div>
