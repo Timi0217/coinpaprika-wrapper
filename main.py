@@ -279,7 +279,7 @@ async function checkHealth() {
     await fetch('/health');
     const ms = Date.now() - t0;
     document.getElementById('dot').classList.add('on');
-    document.getElementById('health-text').textContent = 'online \\u00B7 ' + ms + 'ms';
+    document.getElementById('health-text').textContent = 'online \u00B7 ' + ms + 'ms';
   } catch {
     document.getElementById('health-text').textContent = 'offline';
   }
@@ -340,7 +340,7 @@ async function loadDashboard() {
       changeDiv.className = 'crypto-change';
       const change = crypto.change_24h_pct;
       if (change !== null && change !== undefined) {
-        const arrow = change >= 0 ? '\\u2191' : '\\u2193';
+        const arrow = change >= 0 ? '\u2191' : '\u2193';
         changeDiv.textContent = arrow + ' ' + Math.abs(change).toFixed(1) + '%';
         changeDiv.classList.add(change >= 0 ? 'positive' : 'negative');
       } else {
